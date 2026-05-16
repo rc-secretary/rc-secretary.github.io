@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>내 카드 최적 추천</title>
+<style>
+/* ── 비밀번호 화면 ── */
+#lockScreen{position:fixed;inset:0;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);display:flex;align-items:center;justify-content:center;z-index:9999}
+.lock-box{background:rgba(255,255,255,.06);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.15);border-radius:24px;padding:48px 40px;width:340px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.lock-icon{font-size:3rem;margin-bottom:16px}.lock-title{color:#fff;font-size:1.2rem;font-weight:700;margin-bottom:6px}.lock-sub{color:rgba(255,255,255,.5);font-size:.82rem;margin-bottom:28px}
+.lock-box input{width:100%;padding:14px 18px;border-radius:12px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-size:1.1rem;letter-spacing:.15em;text-align:center;outline:none;margin-bottom:14px;transition:border-color .2s}
+.lock-box input::placeholder{color:rgba(255,255,255,.3);letter-spacing:0}.lock-box input:focus{border-color:#4f7ef8}
+.lock-btn{width:100%;padding:14px;border-radius:12px;border:none;background:#4f7ef8;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;transition:background .2s}.lock-btn:hover{background:#3a65d0}
+.lock-error{color:#ff6b6b;font-size:.82rem;margin-top:12px;min-height:18px}.lock-hint{color:rgba(255,255,255,.3);font-size:.72rem;margin-top:20px}
+/* ── 전체 ── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#f0f4f8;min-height:100vh;padding:24px 16px;color:#1a1a2e}
+h1{text-align:center;font-size:1.5rem;font-weight:700;color:#1a1a2e;margin-bottom:6px}
+.subtitle{text-align:center;font-size:.85rem;color:#666;margin-bottom:24px}
+.nav-tabs{display:flex;gap:8px;justify-content:center;margin-bottom:24px}
+.nav-tab{padding:8px 20px;border-radius:20px;border:1.5px solid #c8d4e8;background:#fff;font-size:.88rem;cursor:pointer;transition:all .15s;color:#444;font-weight:600}
+.nav-tab.active{background:#1a1a2e;color:#fff;border-color:#1a1a2e}
+.panel{display:none;max-width:660px;margin:0 auto}.panel.active{display:block}
+
+.pay-warning{background:linear-gradient(135deg,#fff8e1,#fff3cd);border:1.5px solid #f5c842;border-radius:14px;padding:14px 16px;margin-bottom:16px;display:flex;gap:12px;align-items:flex-start}
+.pay-warning-icon{font-size:1.4rem;flex-shrink:0;margin-top:1px}
+.pay-warning-body{flex:1}
+.pay-warning-title{font-size:.9rem;font-weight:800;color:#7d5a00;margin-bottom:6px}
+.pay-warning-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+.pay-row{font-size:.78rem;line-height:1.5;color:#555}
+.pay-row .pay-card{font-weight:700;color:#333}
+.pay-row .pay-x{color:#e53935;font-weight:700}
+.pay-row .pay-o{color:#2e7d32;font-weight:700}
+.pay-note{font-size:.74rem;color:#888;margin-top:6px;border-top:1px solid rgba(0,0,0,.07);padding-top:6px}
+.search-wrap{display:flex;gap:8px;margin-bottom:16px}
+.search-wrap input{flex:1;padding:14px 18px;border:2px solid #d0d7e3;border-radius:12px;font-size:1rem;outline:none;transition:border-color .2s;background:#fff}
+.search-wrap input:focus{border-color:#4f7ef8}
+.search-wrap button{padding:14px 22px;background:#4f7ef8;color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:600;cursor:pointer;transition:background .2s}
+.search-wrap button:hover{background:#3a65d0}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.tab-btn{padding:7px 14px;border-radius:20px;border:1.5px solid #c8d4e8;background:#fff;font-size:.85rem;cursor:pointer;transition:all .15s;color:#444}
+.tab-btn:hover,.tab-btn.active{background:#4f7ef8;color:#fff;border-color:#4f7ef8}
+.no-result{text-align:center;color:#aaa;font-size:.9rem;padding:40px 0}
+.result-header{font-size:.9rem;color:#555;margin-bottom:14px;padding-left:2px}.result-header strong{color:#1a1a2e}
+.card-result{background:#fff;border-radius:16px;padding:20px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.07);border-left:5px solid #ccc;transition:transform .15s,box-shadow .15s;position:relative}
+.card-result:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.12)}
+.rank-badge{position:absolute;top:16px;right:18px;font-size:.7rem;font-weight:700;padding:4px 10px;border-radius:20px;background:#f3f6ff;color:#4f7ef8}
+.rank-1 .rank-badge{background:#fff4d6;color:#c77700}.rank-1{border-left-color:#f5a623}.rank-2{border-left-color:#7db5f7}.rank-3{border-left-color:#a0d9a0}
+.woori{border-left-color:#005bab}.woori .card-issuer{color:#005bab}
+.shinhan{border-left-color:#0046ff}.shinhan .card-issuer{color:#0046ff}
+.hyundai{border-left-color:#333}.hyundai .card-issuer{color:#333}
+.nh{border-left-color:#008e41}.nh .card-issuer{color:#008e41}
+.card-issuer{font-size:.72rem;font-weight:600;color:#888;letter-spacing:.06em;margin-bottom:4px}
+.card-name{font-size:1.05rem;font-weight:700;color:#1a1a2e;margin-bottom:10px}
+.benefit-main{font-size:1.35rem;font-weight:800;color:#e63946;margin-bottom:4px}
+.benefit-detail{font-size:.82rem;color:#666;line-height:1.6;margin-bottom:8px}
+.matched-keys{margin:6px 0 8px;font-size:.8rem;color:#888;display:flex;flex-wrap:wrap;gap:4px;align-items:center}.key-tag{display:inline-block;background:#f0f4ff;color:#4f7ef8;border:1px solid #c8d8ff;border-radius:20px;padding:2px 10px;font-size:.78rem;font-weight:600}.warn-list{margin-top:8px;display:flex;flex-direction:column;gap:5px}
+.warn-item{display:flex;align-items:flex-start;gap:6px;background:#fff8e1;border-radius:8px;padding:7px 10px;font-size:.76rem;color:#856404;line-height:1.5}
+.warn-item.info{background:#e8f4fd;color:#1565c0}.warn-item.error{background:#fde8e8;color:#b71c1c}
+.warn-icon{flex-shrink:0;margin-top:1px}
+/* ── 백테스트 ── */
+.section-title{font-size:1rem;font-weight:700;color:#1a1a2e;margin:20px 0 12px;padding-bottom:8px;border-bottom:2px solid #e2e8f0}
+.rec-section{background:#f8faff;border-radius:16px;padding:18px 20px;margin-bottom:18px}
+.rec-title{font-size:1rem;font-weight:800;color:#1a1a2e;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.rec-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid #e8edf5}
+.rec-item:last-child{border-bottom:none;padding-bottom:0}
+.rec-badge{min-width:54px;height:22px;border-radius:20px;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.rec-badge.done{background:#e8f5e9;color:#2e7d32}
+.rec-badge.todo{background:#fff3e0;color:#e65100}
+.rec-badge.warn{background:#fce4ec;color:#c62828}
+.rec-body{flex:1}
+.rec-main{font-size:.88rem;font-weight:700;color:#1a1a2e;margin-bottom:3px}
+.rec-desc{font-size:.78rem;color:#666;line-height:1.5}
+.rec-effect{font-size:.78rem;font-weight:700;color:#1565c0;margin-top:3px}
+
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.stat-box{background:#fff;border-radius:14px;padding:16px 12px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.stat-val{font-size:1.3rem;font-weight:800;color:#e63946;margin-bottom:4px}.stat-val.blue{color:#1565c0}.stat-val.green{color:#1b5e20}
+.stat-label{font-size:.72rem;color:#888;font-weight:500}
+.opt-item{background:#fff;border-radius:14px;padding:16px 18px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);border-left:4px solid #e63946;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.opt-left{flex:1}.opt-title{font-size:.92rem;font-weight:700;color:#1a1a2e;margin-bottom:4px}
+.opt-sub{font-size:.78rem;color:#666;line-height:1.5}
+.opt-loss{font-size:1rem;font-weight:800;color:#e63946;white-space:nowrap;text-align:right}
+.status-grid{display:grid;gap:8px}
+.status-row{background:#fff;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 6px rgba(0,0,0,.06)}
+.status-cat{font-size:.88rem;font-weight:600;color:#1a1a2e;flex:1}
+.status-detail{font-size:.75rem;color:#888;margin-top:2px}
+.status-bar-wrap{width:80px;flex-shrink:0}
+.status-bar-bg{background:#f0f0f0;border-radius:4px;height:6px;overflow:hidden}
+.status-bar-fill{height:100%;border-radius:4px;background:#4caf50}
+.status-pct{font-size:.72rem;color:#888;text-align:right;margin-top:2px}
+footer{text-align:center;font-size:.72rem;color:#bbb;margin-top:40px}
+</style>
+</head>
+<body>
+<div id="lockScreen">
+  <div class="lock-box">
+    <div class="lock-icon">💳</div>
+    <div class="lock-title">내 카드 최적 추천</div>
+    <div class="lock-sub">비밀번호를 입력하세요</div>
+    <input type="password" id="pwInput" placeholder="비밀번호" onkeydown="if(event.key==='Enter')checkPw()">
+    <button class="lock-btn" onclick="checkPw()">입장하기</button>
+    <div class="lock-error" id="pwError"></div>
+    <div class="lock-hint">30일간 자동 로그인</div>
+  </div>
+</div>
+
+<h1>💳 내 카드 최적 추천</h1>
+<p class="subtitle">우리카드 D4 · 신한 CLASSIC-Y · AMEX Platinum · NH zgm living</p>
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="switchTab('search',this)">🔍 카드 추천</button>
+  <button class="nav-tab" onclick="switchTab('backtest',this)">📊 백테스트</button>
+</div>
+
+<div class="panel active" id="panel-search">
+  <div class="pay-warning">
+    <div class="pay-warning-icon">⚠️</div>
+    <div class="pay-warning-body">
+      <div class="pay-warning-title">네이버페이 · 토스페이 · 카카오페이 등 간편결제 사용 시 주의</div>
+      <div class="pay-warning-grid">
+        <div class="pay-row"><span class="pay-card">우리카드</span> <span class="pay-x">✕ 전 혜택 미적용</span> (커피55%·택시33%·편의점11%)</div>
+        <div class="pay-row"><span class="pay-card">신한카드</span> <span class="pay-x">✕ Life 5% 할인 미적용</span> (가맹점 인식 불가)</div>
+        <div class="pay-row"><span class="pay-card">NH농협</span> <span class="pay-x">✕ 포인트 적립 제외</span> (PG·간편결제 제외 명시)</div>
+        <div class="pay-row"><span class="pay-card">현대 AMEX</span> <span class="pay-o">○ 기본 1.5X 적립</span> <span class="pay-x">✕ 특별적립(3X·4.5X) 미적용</span></div>
+      </div>
+      <div class="pay-note">💡 혜택을 받으려면 각 카드 실물·앱카드로 직접 결제하거나, 간편결제에 등록 후 해당 앱이 아닌 카드사 앱 결제 방식 사용 권장</div>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <input type="text" id="searchInput" placeholder="예) 스타벅스, 택시, 주유, 보험..." oninput="onType(this.value)" onkeydown="if(event.key==='Enter')doSearch()">
+    <button onclick="doSearch()">추천받기</button>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div id="resultArea"><p class="no-result">☝️ 업체명이나 항목을 입력하면<br>최적 카드를 추천해드립니다</p></div>
+</div>
+
+<div class="panel" id="panel-backtest">
+  <div class="section-title">📊 이용내역 백테스트 결과 (2024Q2 ~ 2026Q1)</div>
+  <div class="section-title">🎯 백테스트 기반 권고사항 (최근 3개월 패턴 반영)</div>
+
+  <div class="rec-section">
+    <div class="rec-title">✅ 이미 전환 완료 — 잘 하고 계신 항목</div>
+
+    <div class="rec-item">
+      <div class="rec-badge done">완료</div>
+      <div class="rec-body">
+        <div class="rec-main">메리츠화재 보험료 → NH농협 자동납부</div>
+        <div class="rec-desc">2025.07부터 전환 완료 확인 (월 96,650원 + 22,870원 NH 결제 중)</div>
+        <div class="rec-effect">연간 약 142,848원 NH 포인트 적립 중 (10% 기준)</div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-badge done">완료</div>
+      <div class="rec-body">
+        <div class="rec-main">교보라이프플래닛 보험료 → NH농협</div>
+        <div class="rec-desc">2026.01부터 전환 완료 확인 (월 19,050원 NH 결제 중)</div>
+        <div class="rec-effect">연간 약 22,860원 NH 포인트 적립 중 (10% 기준)</div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-badge done">완료</div>
+      <div class="rec-body">
+        <div class="rec-main">택시 (카카오T) → 우리카드</div>
+        <div class="rec-desc">최근 3개월 택시 39건 전량 우리카드 결제 확인</div>
+        <div class="rec-effect">33% 청구할인 정상 적용 중 (월 한도 5,500원 범위 내)</div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-badge done">완료</div>
+      <div class="rec-body">
+        <div class="rec-main">KT 통신요금·아파트관리비 → NH농협</div>
+        <div class="rec-desc">최근 3개월 통신·공과금 전액 NH 자동납부 확인</div>
+        <div class="rec-effect">10% 포인트 적립 정상 적용 중</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rec-section">
+    <div class="rec-title">⚠️ 아직 남은 개선 과제</div>
+
+    <div class="rec-item">
+      <div class="rec-badge todo">미완료</div>
+      <div class="rec-body">
+        <div class="rec-main">☕ 커피 일부 (약 16%) 현대 AMEX로 결제 중 → 우리카드로</div>
+        <div class="rec-desc">최근 3개월 스타벅스·투썸 6건(28,500원)이 현대 AMEX로 결제됨<br>간편결제(카카오페이 등) 사용 시 우리카드 혜택 미적용 → 카드 직접 결제 필요</div>
+        <div class="rec-effect">전환 시 55% vs 1.5% → 월 약 15,000원 추가 절약 가능</div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-badge todo">미완료</div>
+      <div class="rec-body">
+        <div class="rec-main">🛡️ DB손해보험 → NH농협 자동납부 전환 검토</div>
+        <div class="rec-desc">현대카드로 결제 중 (2026.01 기준 161,960원 일시납 확인)<br>정기납부 상품이라면 NH 자동납부 전환 시 혜택 발생</div>
+        <div class="rec-effect">월납 기준 연간 약 19,400원 NH 포인트 적립 가능 (10% 기준)</div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-badge todo">미완료</div>
+      <div class="rec-body">
+        <div class="rec-main">🏪 편의점 일부 현대 AMEX → 우리카드로</div>
+        <div class="rec-desc">최근 3개월 편의점 4건(15,950원)이 현대 AMEX로 결제됨<br>GS25·CU·세븐일레븐은 우리카드 11% 할인 적용 대상</div>
+        <div class="rec-effect">11% vs 1.5% → 연간 약 12,000원 추가 절약 가능</div>
+      </div>
+    </div>
+
+    <div class="rec-item">
+      <div class="rec-badge warn">주의</div>
+      <div class="rec-body">
+        <div class="rec-main">💳 일반결제 NH·신한·우리 분산 중 → 현대 AMEX 집중 권장</div>
+        <div class="rec-desc">최근 3개월 혜택 없는 일반결제: NH 2,633,162원 / 신한 2,460,205원 / 우리 1,351,981원<br>특정 혜택 없는 항목은 현대 AMEX 1.5X(무한 적립)가 NH 0% · 신한 0.7%보다 유리</div>
+        <div class="rec-effect">일반결제 현대 AMEX 통합 시 연간 약 88,000원 추가 적립 추정</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">💡 상세 분석 데이터</div>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="stat-val blue">2,280건</div><div class="stat-label">분석 거래건수</div></div>
+    <div class="stat-box"><div class="stat-val">54만원</div><div class="stat-label">개선 가능 혜택 (한도 반영)</div></div>
+    <div class="stat-box"><div class="stat-val green">278만원</div><div class="stat-label">기간 내 실제 혜택</div></div>
+  </div>
+
+  <div class="section-title">💸 즉시 개선 가능 항목 (혜택 손실 순)</div>
+
+  <div class="opt-item">
+    <div class="opt-left">
+      <div class="opt-title">☕ 스타벅스·투썸·커피빈·폴바셋 → <strong>우리카드</strong>로</div>
+      <div class="opt-sub">현재 현대AMEX 1.5% 적립 또는 혼용 중<br>우리카드 전환 시 <strong>55% 청구할인</strong> | 건당 최대 3,300원 / 월 11,000원<br>⚠️ 백화점·공항 입점 매장·간편결제 제외</div>
+    </div>
+    <div class="opt-loss">-208,948원<br><span style="font-size:.7rem;color:#888">개선 여지</span></div>
+  </div>
+
+  <div class="opt-item">
+    <div class="opt-left">
+      <div class="opt-title">🛡️ 보험료 (메리츠화재 등) → <strong>NH농협</strong>으로</div>
+      <div class="opt-sub">현재 현대AMEX 1.5% 적립 중 (연 96,650원 × 12회)<br>NH농협 자동납부 전환 시 <strong>10~15% 포인트 적립</strong> | 항목당 월 한도 10,000~15,000P<br>⚠️ 보험사별 카드자동납부 가능 여부 확인 필요</div>
+    </div>
+    <div class="opt-loss">-111,099원<br><span style="font-size:.7rem;color:#888">개선 여지</span></div>
+  </div>
+
+  <div class="opt-item">
+    <div class="opt-left">
+      <div class="opt-title">🚕 택시 → <strong>우리카드</strong> (월 한도 내) · <strong>신한</strong> (한도 소진 후)</div>
+      <div class="opt-sub">현재 일부 현대AMEX로 결제 중<br>우리카드 33% 청구할인 | 건당 최대 2,200원 / 월 통합 5,500원<br>⚠️ 월 한도 5,500원 소진 후 → 신한 Life 5% 할인 활용 (한도 내)</div>
+    </div>
+    <div class="opt-loss">-58,794원<br><span style="font-size:.7rem;color:#888">개선 여지</span></div>
+  </div>
+
+  <div class="opt-item">
+    <div class="opt-left">
+      <div class="opt-title">💳 일반결제 → <strong>현대 AMEX</strong>로 통합</div>
+      <div class="opt-sub">특정 혜택 없는 일반 지출이 NH·신한으로 분산 결제 중<br>현대 AMEX 기본 1.5X MR 적립 | 한도 없음 · 전월실적 무관<br>⚠️ 신한 0.7% · NH 기본 0%보다 현대 AMEX가 항상 유리</div>
+    </div>
+    <div class="opt-loss">-88,455원<br><span style="font-size:.7rem;color:#888">개선 여지</span></div>
+  </div>
+
+  <div class="opt-item">
+    <div class="opt-left">
+      <div class="opt-title">📱 통신요금 (LGU+) → <strong>NH농협</strong>으로</div>
+      <div class="opt-sub">LG유플러스 통신요금이 현대AMEX로 결제 중 (월 112,000원)<br>NH농협 자동납부 전환 시 <strong>10~15% 포인트 적립</strong> | 항목당 월 한도 내<br>⚠️ 이동통신(SKT·KT·LGU+)만 적용 — 알뜰폰·TV·인터넷 제외</div>
+    </div>
+    <div class="opt-loss">-14,580원<br><span style="font-size:.7rem;color:#888">개선 여지</span></div>
+  </div>
+
+  <div class="section-title">✅ 카테고리별 최적 배정 현황</div>
+  <div class="status-grid" id="statusGrid"></div>
+
+  <div class="section-title">⚠️ CARD_RULES 주요 제약 조건</div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
+    <div class="warn-item error"><span class="warn-icon">🚨</span><span><strong>신한 할인 건 실적 제외:</strong> 할인받은 결제 건은 신한 실적에서 전액 제외 → 비할인 항목으로 전월 30만원을 별도로 채워야 혜택 유지</span></div>
+    <div class="warn-item error"><span class="warn-icon">🚨</span><span><strong>간편결제 주의:</strong> 카카오페이·네이버페이 등으로 결제 시 가맹점이 아닌 결제앱 명칭으로 승인 → 할인·적립 혜택 미적용 가능</span></div>
+    <div class="warn-item"><span class="warn-icon">⚠️</span><span><strong>신한 Life 통합 한도 월 2만원:</strong> 커피·제과·택시·화장품·영화 합산 → 소진 후 해당 카테고리는 현대 AMEX 전환</span></div>
+    <div class="warn-item"><span class="warn-icon">⚠️</span><span><strong>NH 공과금은 실적 산정 제외:</strong> 아파트관리비·전기·도시가스는 적립은 되지만 실적 산정 불포함 → 다른 지출로 구간 채워야 함</span></div>
+    <div class="warn-item"><span class="warn-icon">⚠️</span><span><strong>NH 택시·버스는 실적 제외:</strong> 후불교통 이용금액은 NH 실적 산정에서 제외 → 우리카드 33% 할인 우선 활용</span></div>
+    <div class="warn-item"><span class="warn-icon">⚠️</span><span><strong>현대 AMEX 특별적립 조건:</strong> 해외·호텔 2X, 골프·면세점 3X 적립은 전월 실적 50만원 이상 시만 적용 (미달 시 1.5X 하향)</span></div>
+    <div class="warn-item info"><span class="warn-icon">ℹ️</span><span><strong>현대 AMEX 최종 버퍼:</strong> 다른 카드 한도 소진 후 모든 잔여 지출을 현대 AMEX로 처리 (1.5X 기본 적립, 한도 없음)</span></div>
+    <div class="warn-item info"><span class="warn-icon">ℹ️</span><span><strong>우리카드 커피 주의:</strong> 백화점·대형마트·공항 내 입점 매장은 할인 제외 / 스타벅스 사이렌오더 공식앱 결제는 포함</span></div>
+  </div>
+</div>
+
+<footer>📄 우리카드 D4카드의정석Ⅱ · 신한 The CLASSIC-Y · 현대 AMEX Platinum Ed.1 · NH농협 zgm living<br>CARD_RULES_v1.0 기반 | 이용내역 2025Q3~2026Q1 백테스트 (2,281건)</footer>
+
+<script>
+const PASSWORD = 'card1234';
+const SESSION_DAYS = 30;
+
+function checkPw(){
+  const v=document.getElementById('pwInput').value;
+  if(v===PASSWORD){
+    localStorage.setItem('card_auth',Date.now()+SESSION_DAYS*86400000);
+    document.getElementById('lockScreen').style.display='none';
+  }else{
+    document.getElementById('pwError').textContent='❌ 비밀번호가 틀렸습니다';
+    document.getElementById('pwInput').value='';
+    document.getElementById('pwInput').focus();
+  }
+}
+function checkSession(){
+  const a=localStorage.getItem('card_auth');
+  if(a&&Date.now()<parseInt(a))document.getElementById('lockScreen').style.display='none';
+  else{localStorage.removeItem('card_auth');document.getElementById('pwInput').focus();}
+}
+function switchTab(id,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+const CARDS={
+  woori:{issuer:'우리카드',name:'D4 카드의정석 Ⅱ',cls:'woori'},
+  shinhan:{issuer:'신한카드',name:'The CLASSIC-Y',cls:'shinhan'},
+  hyundai:{issuer:'현대카드',name:'AMEX The Platinum',cls:'hyundai'},
+  nh:{issuer:'NH농협카드',name:'zgm living',cls:'nh'},
+};
+
+const DB=[
+  {keys:['스타벅스','starbucks','투썸','twosome','커피빈','coffee bean','폴바셋','paul bassett'],
+   cardId:'woori',benefitMain:'☕ 55% 청구할인',
+   benefitDetail:'스타벅스·투썸플레이스·커피빈·폴바셋 4대 브랜드\n건당 최대 3,300원 / 월 한도 11,000원 (11~12월 22,000원)',
+   priority:1,
+   warns:[
+     {t:'warn',m:'백화점·대형마트·공항·면세점 내 입점 매장은 할인 제외'},
+     {t:'warn',m:'간편결제(카카오페이 등) 결제 시 혜택 미적용 가능 — 카드 직접 결제 필요'},
+     {t:'info',m:'스타벅스 공식앱 사이렌오더는 포함 / 선불카드·앱 충전은 제외'},
+   ]},
+  {keys:['스타벅스','투썸','커피빈','폴바셋','커피','카페'],
+   cardId:'shinhan',benefitMain:'☕ 5% 할인 (신한 Life — 한도 소진 후)',
+   benefitDetail:'신한 Life 통합 할인 5%\n커피·제과·택시·화장품·영화 합산 월 2만원 한도',
+   priority:2,
+   warns:[
+     {t:'error',m:'Life 통합 한도 월 20,000원 소진 시 이후 결제는 현대 AMEX로 전환'},
+     {t:'warn',m:'할인받은 건은 신한 실적에서 전액 제외'},
+   ]},
+  {keys:['택시','카카오택시','카카오t','타다','우버','ut'],
+   cardId:'woori',benefitMain:'🚕 33% 청구할인',
+   benefitDetail:'택시 33% 청구할인 | 건당 최대 2,200원 / 월 한도 5,500원\n(대중교통 통합 한도)',
+   priority:1,
+   warns:[
+     {t:'warn',m:'간편결제(카카오페이·삼성페이) 이용 시 혜택 미적용 가능'},
+     {t:'info',m:'신한 Life 한도 소진 전: 신한 5% 병행 가능 / 소진 후: 우리카드만 유효'},
+     {t:'info',m:'NH농협에서 택시 결제 시 NH 실적 산정 제외됨'},
+   ]},
+  {keys:['버스','지하철','대중교통','교통카드','metro'],
+   cardId:'woori',benefitMain:'🚌 33% 청구할인',
+   benefitDetail:'시내버스·지하철 후불교통 기능 선택 시 제공\n건당 최대 2,200원 / 월 한도 5,500원 (택시 통합)',
+   priority:1,
+   warns:[
+     {t:'warn',m:'우리카드 발급 시 후불교통 기능 선택 필수'},
+     {t:'warn',m:'NH농협 버스·지하철 이용금액은 NH 실적 산정에서 제외'},
+   ]},
+  {keys:['편의점','gs25','cu','씨유','세븐일레븐','24시편의점','이마트24편의점','미니스톱'],
+   cardId:'woori',benefitMain:'🏪 11% 청구할인',
+   benefitDetail:'편의점 11% 청구할인 | 건당 최대 1,100원 / 월 한도 3,300원',
+   priority:1,
+   warns:[
+     {t:'warn',m:'우리카드 전산 등록 업종 기준 — 일부 매장 미적용 가능 (홈페이지 확인)'},
+     {t:'warn',m:'간편결제 이용 시 혜택 미적용 가능'},
+   ]},
+  {keys:['영화','cgv','롯데시네마','메가박스','씨지브이'],
+   cardId:'woori',benefitMain:'🎬 5,500원 할인',
+   benefitDetail:'현장결제 및 영화관 공식 사이트·앱 결제 시 건당 5,500원\n이용금액 9,900원 이상 / 월 1회(연 12회)',
+   priority:1,
+   warns:[
+     {t:'error',m:'네이버페이·카카오페이 등 예매대행 사이트·앱 결제는 할인 제외'},
+     {t:'info',m:'영화관 공식 앱·사이트에서 우리카드로 직접 결제 시에만 적용'},
+   ]},
+  {keys:['주유','주유소','gs칼텍스','sk에너지','현대오일','오일뱅크','충전소','전기차충전'],
+   cardId:'nh',benefitMain:'⛽ 최대 15% NH포인트 적립',
+   benefitDetail:'전월 50만↑ 5% / 100만↑ 10% / 150만↑ 15%\n월 최대 15,000P | 전기차 공공급속충전 포함',
+   priority:1,
+   warns:[
+     {t:'warn',m:'전월 실적 50만원 미만 시 혜택 없음 → 현대 AMEX 1.5X로 결제'},
+     {t:'info',m:'GS칼텍스는 신한카드 60원/L 할인과 비교 후 유리한 카드 선택'},
+   ]},
+  {keys:['gs칼텍스'],
+   cardId:'shinhan',benefitMain:'⛽ 리터당 60원 할인 (GS칼텍스 전용)',
+   benefitDetail:'GS칼텍스 주유 시 리터당 60원 청구할인 / 월 30만원 이용분까지',
+   priority:2,
+   warns:[
+     {t:'info',m:'월 주유량 소량이면 신한 60원/L 유리 / 대량이면 NH 15% 유리'},
+   ]},
+  {keys:['아파트관리비','관리비','전기요금','전기세','도시가스','가스요금','공과금'],
+   cardId:'nh',benefitMain:'🏠 최대 15% NH포인트 적립',
+   benefitDetail:'아파트관리비·전기요금(주택용)·도시가스 자동납부 시\n전월 50만↑ 5% / 100만↑ 10% / 150만↑ 15% | 월 최대 15,000P',
+   priority:1,
+   warns:[
+     {t:'warn',m:'자동납부 등록 필수 — 일시불 결제는 적립 제외'},
+     {t:'info',m:'공과금은 NH 실적 산정에서 제외 → 실적은 다른 지출로 채워야 함'},
+   ]},
+  {keys:['통신','핸드폰요금','휴대폰요금','skt','kt','lgu+','lg유플러스','이동통신'],
+   cardId:'nh',benefitMain:'📱 최대 15% NH포인트 적립',
+   benefitDetail:'SKT·KT·LGU+ 이동통신요금 자동납부 시\n전월 50만↑ 5% / 100만↑ 10% / 150만↑ 15% | 월 최대 15,000P',
+   priority:1,
+   warns:[
+     {t:'warn',m:'알뜰폰·TV/인터넷 요금 제외'},
+     {t:'warn',m:'PG결제(간편결제 경유) 시 미적용 가능 — 자동납부 직접 등록 필요'},
+   ]},
+  {keys:['보험','생명보험','손해보험','메리츠','삼성화재','현대해상','db손해','한화','교보생명','자동차보험','실손보험'],
+   cardId:'nh',benefitMain:'🛡️ 최대 15% NH포인트 적립',
+   benefitDetail:'생명보험·손해보험 납부 시\n전월 50만↑ 5% / 100만↑ 10% / 150만↑ 15% | 월 최대 15,000P',
+   priority:1,
+   warns:[
+     {t:'error',m:'보험사별 카드납부 가능 여부 상이 — 각 보험사에 직접 문의 필수'},
+     {t:'warn',m:'현재 메리츠화재 등 일부가 현대AMEX로 결제 중 → NH 이전 시 연간 40만원 혜택 개선'},
+   ]},
+  {keys:['학원','학습지','교육','영어학원','수학학원','예체능'],
+   cardId:'nh',benefitMain:'📚 최대 15% NH포인트 적립',
+   benefitDetail:'학원·학습지 오프라인 결제 시\n전월 50만↑ 5% / 100만↑ 10% / 150만↑ 15% | 월 최대 15,000P',
+   priority:1,
+   warns:[
+     {t:'error',m:'온라인 결제·PG 자동납부 경유 건은 적립 제외 — 오프라인 직접 결제만 해당'},
+     {t:'info',m:'교육 업종 이용금액은 NH 실적 산정 시 50%만 반영'},
+   ]},
+  {keys:['해외','해외결제','해외여행','overseas','구독','subscription','해외결제'],
+   cardId:'shinhan',benefitMain:'✈️ 5% 마이신한포인트 적립',
+   benefitDetail:'해외 가맹점 이용 시 5% 포인트 적립 | 전월실적 조건 없음\n명품아울렛·면세점·골프 포함',
+   priority:1,
+   warns:[
+     {t:'warn',m:'해외에서 원화 결제(DCC) 시 추가 수수료 발생 — 반드시 현지통화로 결제'},
+     {t:'info',m:'현대 AMEX 2X(3MR)와 비교: 전월 실적 50만원 이상이면 유사 / 미만이면 신한 우선'},
+   ]},
+  {keys:['해외','구독'],
+   cardId:'hyundai',benefitMain:'✈️ 2X 적립 (3MR/1,000원) — 전월 50만원 이상',
+   benefitDetail:'해외 가맹점 이용 시 멤버십 리워즈 2배 적립\n항공 마일리지·글로벌 호텔 포인트 전환 가능',
+   priority:2,
+   warns:[
+     {t:'warn',m:'전월 실적 50만원 미만 시 1.5X(기본 적립)로 하향'},
+   ]},
+  {keys:['면세점','dutyfree','jdc','신라면세점','롯데면세점','신세계면세점'],
+   cardId:'hyundai',benefitMain:'🛍️ 3X 적립 (4.5MR/1,000원)',
+   benefitDetail:'면세점 이용 시 멤버십 리워즈 3배 적립',
+   priority:1,
+   warns:[
+     {t:'warn',m:'전월 실적 50만원 이상 필수 — 미달 시 1.5X 하향'},
+     {t:'info',m:'신한 5만P 한도 소진 후 면세점은 현대 AMEX로 전환 (CARD_RULES)'},
+   ]},
+  {keys:['jdc','제주jdc'],
+   cardId:'shinhan',benefitMain:'🛍️ 8% 할인 (JDC 면세점 전용)',
+   benefitDetail:'제주 JDC 면세점 8% 할인',
+   priority:2,
+   warns:[]},
+  {keys:['골프','골프장','golf','골프연습장','스크린골프'],
+   cardId:'hyundai',benefitMain:'⛳ 3X 적립 (4.5MR/1,000원)',
+   benefitDetail:'골프·골프연습장 이용 시 멤버십 리워즈 3배 적립',
+   priority:1,
+   warns:[
+     {t:'warn',m:'전월 실적 50만원 이상 필수 — 미달 시 1.5X 하향'},
+   ]},
+  {keys:['호텔','hotel','특급호텔','리조트','조선호텔','신라호텔','롯데호텔','하얏트','힐튼','인터컨티넨탈','앰배서더'],
+   cardId:'hyundai',benefitMain:'🏨 2X 적립 (3MR/1,000원)',
+   benefitDetail:'국내 특급호텔 이용 시 멤버십 리워즈 2배 적립',
+   priority:1,
+   warns:[
+     {t:'warn',m:'전월 실적 50만원 이상 필수 — 미달 시 1.5X 하향'},
+     {t:'info',m:'힐튼 Honors·메리어트 등 글로벌 호텔 포인트 전환 가능'},
+   ]},
+  {keys:['진에어','항공권','비행기','flight'],
+   cardId:'shinhan',benefitMain:'✈️ 15% 할인 (진에어 국제선)',
+   benefitDetail:'진에어 국제선 온라인 구매 시 15% 결제일 할인\n월 40만원 이용분까지 (최대 6만원 할인)',
+   priority:1,
+   warns:[
+     {t:'warn',m:'VISA 전용 / 국제선 한정 (국내선 제외)'},
+     {t:'info',m:'다른 항공사 → 신한 5% 해외 포인트 또는 AMEX 2X 중 유리한 선택'},
+   ]},
+  {keys:['신세계사이먼','롯데프리미엄','아울렛','명품아울렛'],
+   cardId:'shinhan',benefitMain:'🛒 5% 마이신한포인트 적립',
+   benefitDetail:'신세계·롯데 명품아울렛 5% 포인트 적립',
+   priority:1,
+   warns:[
+     {t:'info',m:'일반 백화점·마트는 기본 0.7% 적립'},
+   ]},
+  {keys:['문화','미술관','박물관','국립현대미술관','예술의전당','오디오가이드','전시'],
+   cardId:'shinhan',benefitMain:'🎨 오디오 가이드 무료 (월 1회)',
+   benefitDetail:'지정 문화시설 오디오 가이드 무료 이용\n월 1회·연 4회 / 예술의전당·국립현대미술관 등',
+   priority:1,
+   warns:[]},
+  {keys:['레스토랑','패밀리레스토랑','아웃백','빕스','vips','애슐리'],
+   cardId:'shinhan',benefitMain:'🍽️ Gift Option — 패밀리레스토랑 11만원',
+   benefitDetail:'연 1회 Gift Option 선택 시 패밀리레스토랑 11만원 이용권',
+   priority:1,
+   warns:[
+     {t:'info',m:'Gift Option은 연 1회 택1: 마이신한포인트 7만점 / 문화상품권 8만원 / 패밀리레스토랑 11만원 / 호텔 애프터눈 티 연 2회'},
+   ]},
+  {keys:['이마트','홈플러스','롯데마트','코스트코','대형마트','마트','트레이더스','킴스클럽'],
+   cardId:'hyundai',benefitMain:'💳 1.5MR / 1,000원 (기본 적립)',
+   benefitDetail:'4개 카드 중 대형마트 전용 혜택 없음 — 현대 AMEX 기본 1.5X 적립이 가장 유리\n이마트 자체 앱 결제 시 SSG페이 등과 병행 고려',
+   priority:1,
+   warns:[
+     {t:'info',m:'4장 중 이마트·마트 전용 혜택 카드 없음 — 기본 적립 최대인 현대 AMEX 권장'},
+     {t:'warn',m:'우리카드 D4는 대형마트 입점 매장(스타벅스 등)도 할인 제외'},
+     {t:'info',m:'이마트앱 SSG머니 충전 후 결제 시 추가 할인 별도 확인 권장'},
+   ]},
+  {keys:['기본','일반결제','기타'],
+   cardId:'hyundai',benefitMain:'💳 1.5MR / 1,000원 (기본 버퍼)',
+   benefitDetail:'모든 가맹점 기본 적립 — 전월 실적 무관 / 한도 없음\n다른 카드 한도 소진 후 최종 버퍼 카드',
+   priority:1,
+   warns:[
+     {t:'info',m:'신한 기본 적립 0.7% 대비 현대 AMEX 1.5X가 항상 유리 — 일반 지출은 현대 AMEX 우선'},
+   ]},
+];
+
+const CATEGORIES=[
+  {label:'☕ 커피',keyword:'스타벅스'},{label:'🚕 택시',keyword:'택시'},
+  {label:'🚌 대중교통',keyword:'버스'},{label:'🏪 편의점',keyword:'편의점'},
+  {label:'🎬 영화',keyword:'영화'},{label:'⛽ 주유',keyword:'주유'},
+  {label:'🏠 공과금',keyword:'아파트관리비'},{label:'📱 통신',keyword:'통신'},
+  {label:'🛡️ 보험',keyword:'보험'},{label:'📚 학원',keyword:'학원'},
+  {label:'✈️ 해외결제',keyword:'해외'},{label:'🛍️ 면세점',keyword:'면세점'},
+  {label:'⛳ 골프',keyword:'골프'},{label:'🏨 호텔',keyword:'호텔'},
+  {label:'진에어',keyword:'진에어'},{label:'🎨 문화관람',keyword:'미술관'},
+];
+
+const STATUS_DATA=[
+  {cat:'공과금 (아파트관리비·전기·가스)',icon:'✅',optimal:'NH농협',pct:100,miss:''},
+  {cat:'특급호텔',icon:'✅',optimal:'현대AMEX',pct:100,miss:''},
+  {cat:'일반소비',icon:'✅',optimal:'현대AMEX',pct:98,miss:''},
+  {cat:'일반카페 (4대브랜드 외)',icon:'⚠️',optimal:'현대AMEX',pct:58,miss:'44만원 미배정'},
+  {cat:'해외구독·항공권',icon:'❌',optimal:'신한카드',pct:35,miss:'393만원 미배정'},
+  {cat:'보험료',icon:'❌',optimal:'NH농협',pct:23,miss:'299만원 미배정'},
+  {cat:'통신요금',icon:'❌',optimal:'NH농협',pct:41,miss:'103만원 미배정'},
+  {cat:'커피 4대 브랜드',icon:'❌',optimal:'우리카드',pct:17,miss:'89만원 미배정'},
+  {cat:'아울렛 쇼핑',icon:'❌',optimal:'신한카드',pct:24,miss:'84만원 미배정'},
+  {cat:'택시',icon:'❌',optimal:'우리카드',pct:43,miss:'48만원 미배정'},
+  {cat:'편의점',icon:'❌',optimal:'우리카드',pct:0,miss:'29만원 전부 미배정'},
+  {cat:'대중교통',icon:'❌',optimal:'우리카드',pct:0,miss:'25만원 전부 미배정'},
+  {cat:'영화관',icon:'❌',optimal:'우리카드',pct:0,miss:'11만원 전부 미배정'},
+];
+
+function init(){
+  const tabsEl=document.getElementById('tabs');
+  CATEGORIES.forEach(cat=>{
+    const btn=document.createElement('button');
+    btn.className='tab-btn';btn.textContent=cat.label;
+    btn.onclick=()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('searchInput').value=cat.keyword;
+      render(cat.keyword);
+    };
+    tabsEl.appendChild(btn);
+  });
+
+  const grid=document.getElementById('statusGrid');
+  STATUS_DATA.forEach(d=>{
+    const row=document.createElement('div');row.className='status-row';
+    const barColor=d.pct>=90?'#4caf50':d.pct>=50?'#ff9800':'#e53935';
+    row.innerHTML=`
+      <span style="font-size:1rem;flex-shrink:0">${d.icon}</span>
+      <div style="flex:1">
+        <div class="status-cat">${d.cat}</div>
+        <div class="status-detail">최적카드: ${d.optimal}${d.miss?' | '+d.miss:''}</div>
+      </div>
+      <div class="status-bar-wrap">
+        <div class="status-bar-bg"><div class="status-bar-fill" style="width:${d.pct}%;background:${barColor}"></div></div>
+        <div class="status-pct">${d.pct}% 배정</div>
+      </div>`;
+    grid.appendChild(row);
+  });
+}
+
+function onType(val){
+  if(val.trim().length>=1)render(val.trim());
+  else document.getElementById('resultArea').innerHTML='<p class="no-result">☝️ 업체명이나 항목을 입력하면<br>최적 카드를 추천해드립니다</p>';
+}
+function doSearch(){const v=document.getElementById('searchInput').value.trim();if(v)render(v);}
+
+function render(query){
+  const q=query.toLowerCase();
+  const matched=[];
+  DB.forEach(item=>{
+    const matchedKeys=item.keys.filter(k=>k.toLowerCase().includes(q)||q.includes(k.toLowerCase()));
+    if(matchedKeys.length>0)matched.push({...item, _matchedKeys: matchedKeys});
+  });
+  const seen=new Set();
+  const unique=matched.filter(item=>{
+    const key=item.cardId+item.benefitMain;
+    if(seen.has(key))return false;
+    seen.add(key);return true;
+  }).sort((a,b)=>a.priority-b.priority);
+
+  const resultEl=document.getElementById('resultArea');
+  if(!unique.length){
+    resultEl.innerHTML=`<p class="no-result">😅 "<strong>${query}</strong>" 에 해당하는 혜택을 찾지 못했습니다</p>`;
+    return;
+  }
+  let html=`<p class="result-header">🔍 "<strong>${query}</strong>" — ${unique.length}개 혜택</p>`;
+  unique.forEach((item,idx)=>{
+    const card=CARDS[item.cardId];
+    const rc=idx===0?'rank-1':idx===1?'rank-2':'rank-3';
+    const rl=idx===0?'🥇 최우선 추천':idx===1?'🥈 차선 추천':`${idx+1}순위`;
+    const det=item.benefitDetail.split('\n').join('<br>');
+    let warnHtml='';
+    if(item.warns&&item.warns.length){
+      warnHtml='<div class="warn-list">'+item.warns.map(w=>
+        `<div class="warn-item ${w.t==='info'?'info':w.t==='error'?'error':''}">
+          <span class="warn-icon">${w.t==='info'?'ℹ️':w.t==='error'?'🚨':'⚠️'}</span>
+          <span>${w.m}</span></div>`
+      ).join('')+'</div>';
+    }
+    html+=`
+      <div class="card-result ${card.cls} ${rc}">
+        <span class="rank-badge">${rl}</span>
+        <div class="card-issuer">${card.issuer}</div>
+        <div class="card-name">${card.name}</div>
+        <div class="matched-keys">🔑 매칭 키워드: ${item._matchedKeys.map(k=>`<span class="key-tag">${k}</span>`).join('')}</div>
+        <div class="benefit-main">${item.benefitMain}</div>
+        <div class="benefit-detail">${det}</div>
+        ${warnHtml}
+      </div>`;
+  });
+  resultEl.innerHTML=html;
+}
+
+checkSession();
+init();
+</script>
+</body>
+</html>
